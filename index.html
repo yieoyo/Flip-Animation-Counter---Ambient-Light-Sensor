@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambient Light Sensor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #808080;
+        }
+        #luxValue, #thresholdValue, #frequencyValue, #frequencyFrameChangeValue {
+            font-size: 1rem;
+            color: #333;
+        }
+        .counter img, .currency img {
+            width: 13vw; /* Adjust width as needed */
+            height: auto; /* Maintain aspect ratio */
+        }
+        .counter {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .counter-wrapper {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .top-part {
+            display: flex;
+            align-items: end;
+            justify-content: center;
+        }
+        h2.bottom {
+            font-size: 6vw;
+            color: #ffffff;
+            margin: 15px;
+            margin-left: 13vw;
+        }
+        .decimal-sign {
+            width: 3vw;
+            height: 3vw;
+            background: #fff;
+            margin-left: .6vw;
+        }
+    </style>
+</head>
+<body>
+    <div class="counter-wrapper">
+        <div class="top-part">
+            <div class="currency">
+                <img src="numbers/gbp.png" alt="GBP">
+            </div>
+            <div class="counter">
+                <img src="numbers/01.png" alt="0">
+                <img src="numbers/01.png" alt="0">
+                <img src="numbers/01.png" alt="0">
+                <div class="decimal-sign"></div>
+                <img src="numbers/01.png" alt="0">
+                <img src="numbers/01.png" alt="0">
+            </div>
+        </div>
+        <div class="bottom-part">
+            <h2 class="bottom">PER YEAR</h2>
+        </div>
+    </div>
+    <script>
+        const threshold = 60;
+        const frequency = 1000;
+        const framedivide = 5;
+        let counter = 0;
+        let intervalId = null;
+        const animationIntervalIds = [];
+
+        function updateCounter() {
+            counter++;
+            const counterStr = counter.toString().padStart(5, '0');
+            const counterDigits = counterStr.split('');
+            const counterImages = document.querySelectorAll('.counter img');
+
+            counterImages.forEach((img, index) => {
+                 if (img.alt != counterDigits[index] ) {
+                    animateDigit(img, counterDigits[index], index);
+                    if(counterDigits[index] == 0 && counter >= 10){
+                        animateDigit(img, 10, index);
+                    }
+                }
+            });
+        }
+
+        function animateDigit(img, digit, index) {
+            let frame = 1;
+            var freq = Math.floor(frequency / framedivide) - 1;
+            if (animationIntervalIds[index]) {
+                clearInterval(animationIntervalIds[index]);
+            }
+            animationIntervalIds[index] = setInterval(() => {
+                newdigit = digit == 0 ? digit : parseInt(digit) - 1;
+                img.src = `numbers/${newdigit}${frame}.png`;
+                if(digit == 10 && counter >= 10){
+                    img.alt = 0;
+                } else if(digit == 10 && counter < 10){
+                    img.alt = 9;
+                } else {
+                    img.alt = digit;
+                }
+                frame++;
+                if (frame > 7) {
+                    clearInterval(animationIntervalIds[index]);
+                }
+            }, freq); // Change frame every 100 milliseconds
+
+        }
+
+        // Check if the browser supports the Ambient Light Sensor API
+        if ('AmbientLightSensor' in window) {
+            try {
+                const sensor = new AmbientLightSensor();
+                sensor.addEventListener('reading', () => {
+                    const luxValue = sensor.illuminance;
+
+                    if (luxValue > threshold) {
+                        if (!intervalId) {
+                            intervalId = setInterval(updateCounter, frequency);
+                        }
+                    } else {
+                        if (intervalId) {
+                            clearInterval(intervalId);
+                            intervalId = null;
+                        }
+                    }
+                });
+                sensor.addEventListener('error', event => {
+                    console.error(event.error.name, event.error.message);
+                });
+                sensor.start();
+            } catch (err) {
+                console.error('Ambient Light Sensor not supported:', err);
+                document.querySelectorAll('.counter img').forEach(img => img.src = '');
+            }
+        } else {
+            console.warn('Ambient Light Sensor API not available');
+        }
+        intervalId = setInterval(updateCounter, frequency);
+    </script>
+</body>
+</html>
